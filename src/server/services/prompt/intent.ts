@@ -41,7 +41,21 @@ const ALL_WORDS = ["tat ca", "het", "toan bo", "moi"];
 /** Threshold above which a spoken column name is accepted as a real column. */
 const COLUMN_MATCH_THRESHOLD = 0.62;
 
-export function interpret(prompt: string, definition: TemplateDefinition): PromptOutcome {
+/**
+ * What the sentence can refer to besides the schema.
+ *
+ * The values of the grouping column matter: a person names an indicator or a
+ * unit, not a column, when they say which rows they want.
+ */
+export interface PromptContext {
+  categories?: string[];
+}
+
+export function interpret(
+  prompt: string,
+  definition: TemplateDefinition,
+  context: PromptContext = {},
+): PromptOutcome {
   const verdict = checkPrompt(prompt);
   if (!verdict.allowed) {
     return { kind: "REFUSED", reply: verdict.reply ?? "" };
@@ -74,8 +88,17 @@ export function interpret(prompt: string, definition: TemplateDefinition): Promp
     }
   }
 
+  // Restricting the report to certain rows. Checked before the column rules,
+  // because "chi tieu X" names a value inside a column, not the column itself.
+  const restriction = matchRestriction(text, definition, context);
+  if (restriction) operations.push(restriction);
+
+  if (isClearingFilters(text)) {
+    operations.push({ type: "CLEAR_FILTERS" });
+  }
+
   // Column level requests.
-  const column = matchColumn(text, definition);
+  const column = restriction ? null : matchColumn(text, definition);
   if (column) {
     if (text.includes("nhom") || text.includes("gom") || text.includes("theo tung")) {
       operations.push({ type: "SET_GROUP_BY", column });
@@ -98,13 +121,104 @@ export function interpret(prompt: string, definition: TemplateDefinition): Promp
   if (operations.length === 0) {
     return {
       kind: "UNCLEAR",
-      reply:
-        "Mình chưa rõ ý bạn. Bạn nói cụ thể hơn giúp mình, ví dụ như các câu dưới đây.",
-      examples: EXAMPLES,
+      reply: "Mình chưa rõ ý bạn. Bạn thử nói theo một trong các cách dưới đây.",
+      examples: suggestExamples(definition, context),
     };
   }
 
   return { kind: "OPERATIONS", operations, reply: "" };
+}
+
+/** Words that mean "only these rows". */
+const ONLY_WORDS = ["chi", "rieng", "loc", "duy nhat", "moi minh"];
+const ONLY_TAIL = ["thoi", "ma thoi"];
+
+function isClearingFilters(text: string): boolean {
+  return (
+    (text.includes("bo loc") || text.includes("huy loc") || text.includes("bo dieu kien")) ||
+    (text.includes("tat ca") && (text.includes("xem lai") || text.includes("tinh lai")))
+  );
+}
+
+/**
+ * Finds a request to restrict the report to named values.
+ *
+ * The value is matched against the categories actually present in the data, so
+ * a person can write the indicator roughly and still be understood.
+ */
+function matchRestriction(
+  text: string,
+  definition: TemplateDefinition,
+  context: PromptContext,
+): Operation | null {
+  const categories = context.categories ?? [];
+  if (categories.length === 0) return null;
+
+  const groupBy = definition.analysis.groupBy;
+  if (!groupBy) return null;
+
+  const excluding = REMOVE_WORDS.some((word) => hasWord(text, word)) && !text.includes("chi");
+  const restricting =
+    ONLY_WORDS.some((word) => hasWord(text, word)) ||
+    ONLY_TAIL.some((word) => text.endsWith(word)) ||
+    text.includes("thong ke theo") ||
+    text.includes("chi lay") ||
+    text.includes("chi xem");
+
+  if (!restricting && !excluding) return null;
+
+  const matched = categories.filter((category) => mentions(text, category));
+  if (matched.length === 0) return null;
+
+  return {
+    type: "FILTER_ROWS",
+    column: groupBy,
+    values: matched,
+    mode: excluding ? "exclude" : "include",
+  };
+}
+
+/** True when the sentence names this category, allowing an approximate write up. */
+function mentions(text: string, category: string): boolean {
+  const target = normalize(category);
+  if (!target) return false;
+
+  // A leading numbering such as "1." is part of the cell, not of what is said.
+  const withoutNumber = target.replace(/^\d+\s*/, "").trim();
+  for (const candidate of [target, withoutNumber]) {
+    if (!candidate) continue;
+    if (text.includes(candidate)) return true;
+    // A long label is often typed only in part.
+    const words = candidate.split(" ");
+    if (words.length >= 3) {
+      const head = words.slice(0, 3).join(" ");
+      if (head.length >= 8 && text.includes(head)) return true;
+    }
+    if (bestWindowSimilarity(text, candidate) >= 0.82) return true;
+  }
+  return false;
+}
+
+/** Examples built from this report, not from a fixed list. */
+function suggestExamples(definition: TemplateDefinition, context: PromptContext): string[] {
+  const examples: string[] = [];
+  const category = context.categories?.[0];
+  const groupName = definition.columns.find(
+    (column) => column.key === definition.analysis.groupBy,
+  )?.expectedName;
+  const metric = definition.analysis.metrics[0]?.label;
+
+  if (category) examples.push(`chỉ lấy ${shorten(category)}`);
+  if (metric) examples.push(`bỏ cột ${shorten(metric)}`);
+  examples.push("thêm biểu đồ tròn");
+  if (groupName) examples.push(`nhóm theo ${shorten(groupName)}`);
+  examples.push("đổi tên báo cáo thành Báo cáo quý 2");
+  return examples.slice(0, 5);
+}
+
+function shorten(value: string, limit = 40): string {
+  const trimmed = value.trim();
+  return trimmed.length <= limit ? trimmed : `${trimmed.slice(0, limit - 3)}...`;
 }
 
 function hasWord(text: string, word: string): boolean {

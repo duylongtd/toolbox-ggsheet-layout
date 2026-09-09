@@ -45,6 +45,20 @@ export interface IngestedWorkbook {
   activeSheetIndex: number;
 }
 
+export interface PlanProblem {
+  code: string;
+  message: string;
+  details: Record<string, unknown>;
+}
+
+/** A requirement turned into a plan, already checked against the data. */
+export interface PlanReview {
+  status: "VALID" | "UNSUPPORTED" | "IRRELEVANT" | "INVALID";
+  summary: string;
+  problems: PlanProblem[];
+  definition: TemplateDefinition | null;
+}
+
 export interface PipelineResult {
   engineVersion: string;
   reportVersion: string;
@@ -71,6 +85,12 @@ export interface AnalysisEngineClient {
     confirmedMappings?: Record<string, string>;
     ignoreExtraColumns?: boolean;
   }): Promise<MatchResult>;
+  planAnalysis(input: {
+    datasetId: string;
+    prompt: string;
+    definition: TemplateDefinition;
+    language?: string;
+  }): Promise<PlanReview>;
   process(input: {
     datasetId: string;
     definition: TemplateDefinition;
@@ -132,6 +152,20 @@ export class HttpAnalysisEngineClient implements AnalysisEngineClient {
       definition: input.definition,
       confirmedMappings: input.confirmedMappings ?? {},
       ignoreExtraColumns: input.ignoreExtraColumns ?? true,
+    });
+  }
+
+  async planAnalysis(input: {
+    datasetId: string;
+    prompt: string;
+    definition: TemplateDefinition;
+    language?: string;
+  }): Promise<PlanReview> {
+    return this.request<PlanReview>("POST", "/internal/plan", {
+      datasetId: input.datasetId,
+      prompt: input.prompt,
+      definition: input.definition,
+      language: input.language ?? "vi",
     });
   }
 

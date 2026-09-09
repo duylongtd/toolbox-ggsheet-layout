@@ -1,7 +1,7 @@
 "use client";
 
-import { FileSpreadsheet, Link2, Upload } from "lucide-react";
 import { useRef, useState } from "react";
+import { LogoMark } from "@/components/brand/Logo";
 import { Button } from "@/components/ui/Button";
 import { T, t } from "@/lib/format/vi";
 import { checkSheetUrl } from "@/lib/security/sheetUrl";
@@ -10,9 +10,8 @@ import { checkUpload } from "@/lib/security/upload";
 /**
  * Step one: pick a file or paste a link.
  *
- * One decision, one button. There is no template chooser here: a person who has
- * never used the tool has nothing to choose from, and one who has can reuse a
- * report later from the report list.
+ * One decision and one button. No template chooser: someone opening the tool
+ * for the first time has nothing to choose from.
  */
 export function SourceStep({
   maxUploadSizeMb,
@@ -47,26 +46,19 @@ export function SourceStep({
 
   function submit() {
     setError(null);
-    if (file) {
-      onSubmit({ file });
-      return;
-    }
+    if (file) return onSubmit({ file });
     if (url.trim()) {
-      if (!checkSheetUrl(url).valid) {
-        setError(T.linkInvalid);
-        return;
-      }
-      onSubmit({ url: url.trim() });
-      return;
+      if (!checkSheetUrl(url).valid) return setError(T.linkInvalid);
+      return onSubmit({ url: url.trim() });
     }
     setError(T.needSource);
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl">
-      <div className="mb-8 text-center">
-        <h1 className="text-2xl font-semibold text-slate-900">{T.uploadTitle}</h1>
-        <p className="mt-2 text-slate-500">{T.tagline}</p>
+    <div className="mx-auto w-full max-w-xl animate-fade-up">
+      <div className="mb-9 text-center">
+        <h1 className="text-[28px] font-semibold tracking-tight text-ink">{T.uploadTitle}</h1>
+        <p className="mt-2 text-ink-muted">{T.tagline}</p>
       </div>
 
       <button
@@ -82,28 +74,26 @@ export function SourceStep({
           setDragging(false);
           chooseFile(event.dataTransfer.files?.[0] ?? null);
         }}
-        className={`flex w-full flex-col items-center gap-3 rounded-2xl border-2 border-dashed px-6 py-12 transition-colors ${
+        className={`flex w-full flex-col items-center gap-3.5 rounded-2xl border-2 border-dashed px-6 py-14 transition-all ${
           dragging
-            ? "border-blue-500 bg-blue-50"
+            ? "scale-[1.01] border-brand-500 bg-brand-50"
             : file
-              ? "border-green-500 bg-green-50"
-              : "border-slate-300 bg-white hover:border-blue-400 hover:bg-blue-50/40"
+              ? "border-brand-500 bg-brand-50"
+              : "border-[#dfe6e2] bg-white hover:border-brand-300 hover:bg-brand-50/50"
         }`}
       >
-        <span
-          className={`rounded-full p-4 ${file ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}
-        >
-          <FileSpreadsheet className="h-7 w-7" aria-hidden />
-        </span>
+        <LogoMark className={`h-11 w-11 transition-opacity ${file ? "" : "opacity-30"}`} />
         {file ? (
           <>
-            <span className="text-base font-medium text-slate-900">{file.name}</span>
-            <span className="text-sm text-slate-500">Bấm để chọn tệp khác</span>
+            <span className="max-w-full truncate px-4 text-[15px] font-medium text-ink">
+              {file.name}
+            </span>
+            <span className="text-sm text-ink-muted">Bấm để chọn tệp khác</span>
           </>
         ) : (
           <>
-            <span className="text-base font-medium text-slate-800">{T.uploadHint}</span>
-            <span className="text-sm text-slate-500">{t(T.uploadFormats, maxUploadSizeMb)}</span>
+            <span className="text-[15px] font-medium text-ink">{T.uploadHint}</span>
+            <span className="text-sm text-ink-muted">{t(T.uploadFormats, maxUploadSizeMb)}</span>
           </>
         )}
       </button>
@@ -115,17 +105,14 @@ export function SourceStep({
         onChange={(event) => chooseFile(event.target.files?.[0] ?? null)}
       />
 
-      <div className="my-6 flex items-center gap-3 text-sm text-slate-400">
-        <span className="h-px flex-1 bg-slate-200" />
+      <div className="my-7 flex items-center gap-4 text-sm text-ink-subtle">
+        <span className="h-px flex-1 bg-[#dfe6e2]" />
         <span>hoặc</span>
-        <span className="h-px flex-1 bg-slate-200" />
+        <span className="h-px flex-1 bg-[#dfe6e2]" />
       </div>
 
       <label className="block">
-        <span className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-700">
-          <Link2 className="h-4 w-4 text-slate-400" aria-hidden />
-          {T.orLink}
-        </span>
+        <span className="app-label mb-2">{T.orLink}</span>
         <input
           type="url"
           inputMode="url"
@@ -139,20 +126,15 @@ export function SourceStep({
           className="app-input"
         />
       </label>
-      <p className="mt-2 text-xs leading-relaxed text-slate-500">{T.linkNote}</p>
+      <p className="mt-2 text-[13px] leading-relaxed text-ink-subtle">{T.linkNote}</p>
 
       {error && (
-        <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+        <p className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
           {error}
         </p>
       )}
 
-      <Button
-        onClick={submit}
-        loading={pending}
-        className="mt-6 w-full justify-center py-3 text-base"
-        icon={<Upload className="h-5 w-5" aria-hidden />}
-      >
+      <Button onClick={submit} loading={pending} size="lg" className="mt-7 w-full justify-center">
         {pending ? T.reading : T.readData}
       </Button>
     </div>

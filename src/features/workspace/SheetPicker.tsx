@@ -1,6 +1,5 @@
 "use client";
 
-import { CircleSlash, Table2 } from "lucide-react";
 import { T, num, t } from "@/lib/format/vi";
 import { toDisplayText } from "@/lib/security/text";
 import type { Dataset, SheetOption } from "@/types";
@@ -32,15 +31,15 @@ export function SheetPicker({
 
   return (
     <section className="app-card overflow-hidden">
-      <header className="border-b border-slate-200 px-5 py-4">
-        <h2 className="text-base font-semibold text-slate-900">
+      <header className="border-b border-[#dfe6e2] px-5 py-4">
+        <h2 className="text-base font-semibold text-ink">
           {many ? t(T.sheetTitle, sheets.length) : T.sheetOne}
         </h2>
-        {many && <p className="mt-1 text-sm text-slate-500">{T.sheetPick}</p>}
+        {many && <p className="mt-1 text-sm text-ink-muted">{T.sheetPick}</p>}
       </header>
 
       {many && (
-        <div className="flex flex-wrap gap-2 border-b border-slate-200 bg-slate-50 px-5 py-3">
+        <div className="flex flex-wrap gap-2 border-b border-[#dfe6e2] bg-[#f6f8f7] px-5 py-3">
           {sheets.map((sheet) => {
             const active = sheet.datasetId === activeDatasetId;
             return (
@@ -53,22 +52,17 @@ export function SheetPicker({
                 title={sheet.usable ? undefined : T.sheetEmpty}
                 className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
                   active
-                    ? "border-blue-600 bg-blue-600 text-white"
+                    ? "border-brand-600 bg-brand-600 text-white"
                     : sheet.usable
-                      ? "border-slate-300 bg-white text-slate-700 hover:border-blue-400 hover:bg-blue-50"
-                      : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
+                      ? "border-[#dfe6e2] bg-white text-ink hover:border-brand-300 hover:bg-brand-50"
+                      : "cursor-not-allowed border-[#dfe6e2] bg-[#eef1ef] text-ink-subtle"
                 }`}
               >
-                {sheet.usable ? (
-                  <Table2 className="h-4 w-4" aria-hidden />
-                ) : (
-                  <CircleSlash className="h-4 w-4" aria-hidden />
-                )}
                 <span className="max-w-[16rem] truncate">
                   {toDisplayText(sheet.sheetName, 40)}
                 </span>
                 {sheet.usable && (
-                  <span className={active ? "text-blue-100" : "text-slate-400"}>
+                  <span className={active ? "text-blue-100" : "text-ink-subtle"}>
                     {num(sheet.rowCount)}
                   </span>
                 )}
@@ -79,7 +73,7 @@ export function SheetPicker({
       )}
 
       <div className="px-5 py-4">
-        <p className="mb-3 text-sm text-slate-500">
+        <p className="mb-3 text-sm text-ink-muted">
           {t(T.rowsCount, num(dataset.rowCount))} · {t(T.columnsCount, dataset.columnCount)}
         </p>
 
@@ -105,7 +99,7 @@ export function SheetPicker({
         </div>
 
         {dataset.rowCount > previewRows.length && (
-          <p className="mt-2 text-xs text-slate-400">
+          <p className="mt-2 text-xs text-ink-subtle">
             {t(T.previewNote, previewRows.length, num(dataset.rowCount))}
           </p>
         )}

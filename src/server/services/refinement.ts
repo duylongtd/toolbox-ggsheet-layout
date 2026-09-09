@@ -33,7 +33,9 @@ export type Operation =
   | { type: "SET_AI_ENABLED"; enabled: boolean }
   | { type: "SET_GROUP_BY"; column: string }
   | { type: "REMOVE_METRIC"; column: string }
-  | { type: "ADD_METRIC"; column: string; aggregation: "sum" | "mean" };
+  | { type: "ADD_METRIC"; column: string; aggregation: "sum" | "mean" }
+  | { type: "FILTER_ROWS"; column: string; values: string[]; mode: "include" | "exclude" }
+  | { type: "CLEAR_FILTERS" };
 
 export interface ApplyResult {
   definition: TemplateDefinition;
@@ -188,6 +190,35 @@ export function applyOperations(
         }
         applied.push(operation);
         messages.push(`Đã thêm cột "${label}" vào báo cáo.`);
+        break;
+      }
+
+      case "FILTER_ROWS": {
+        if (!next.columns.some((column) => column.key === operation.column)) break;
+        if (operation.values.length === 0) break;
+        const analysis = next.analysis as unknown as {
+          filters?: Array<{ column: string; values: string[]; mode: string }>;
+        };
+        analysis.filters = [
+          ...(analysis.filters ?? []).filter((rule) => rule.column !== operation.column),
+          { column: operation.column, values: operation.values, mode: operation.mode },
+        ];
+        applied.push(operation);
+        const names = operation.values.map((value) => `"${value}"`).join(", ");
+        messages.push(
+          operation.mode === "include"
+            ? `Đã lọc, báo cáo chỉ tính trên ${names}.`
+            : `Đã bỏ ${names} khỏi báo cáo.`,
+        );
+        break;
+      }
+
+      case "CLEAR_FILTERS": {
+        const analysis = next.analysis as unknown as { filters?: unknown[] };
+        if (!analysis.filters?.length) break;
+        analysis.filters = [];
+        applied.push(operation);
+        messages.push("Đã bỏ lọc, báo cáo tính lại trên toàn bộ số liệu.");
         break;
       }
 

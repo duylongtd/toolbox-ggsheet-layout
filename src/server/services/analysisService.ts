@@ -262,7 +262,7 @@ export function createAnalysisService(repositories: Repositories) {
         throw new AppError(ErrorCodes.VALIDATION_FAILED, check.message!, 400);
       }
 
-      const title = (input.title ?? "Google Sheet analysis").slice(0, 200);
+      const title = (input.title ?? "Báo cáo từ Google Sheets").slice(0, 200);
       const request = await repositories.analysisRequests.create({
         ownerId: input.ownerId,
         title,

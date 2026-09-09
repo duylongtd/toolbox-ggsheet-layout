@@ -119,6 +119,7 @@ export interface TemplateDefinition {
   derivedFields: Array<Record<string, unknown>>;
   analysis: {
     groupBy: string | null;
+    filters?: Array<{ column: string; values: string[]; mode: "include" | "exclude" }>;
     metrics: Array<{ key: string; label: string; column: string; aggregation: string; unit: string }>;
     descriptiveColumns: string[];
     rankings: Array<Record<string, unknown>>;
@@ -128,6 +129,28 @@ export interface TemplateDefinition {
   charts: Array<{ id: string; type: string; title: string; x: string | null; y: string | null }>;
   report: { title: string; subtitle: string; period: string; language: string; sections: string[] };
   ai: { enabled: boolean; language: string; instructions: string; allowRawData: boolean };
+}
+
+/**
+ * A change the system proposes but has not made.
+ *
+ * A typed request is planned and checked against the real data first. The plan
+ * waits here with the exact definition it would apply, so accepting it applies
+ * what was reviewed rather than asking the model a second time and getting
+ * something else.
+ */
+export interface PendingPlan {
+  id: string;
+  /** The request as it was typed, echoed back so the plan can be read against it. */
+  prompt: string;
+  /** One line stating what the plan does. */
+  summary: string;
+  /** The concrete changes, derived from the two definitions rather than written by a model. */
+  steps: string[];
+  /** Reservations that do not block the plan, such as a filter value that matched nothing. */
+  notes: string[];
+  definition: TemplateDefinition;
+  createdAt: string;
 }
 
 export interface Template {
@@ -228,6 +251,8 @@ export interface AnalysisRequest {
   datasetId: string | null;
   sheets: SheetOption[];
   definition: TemplateDefinition | null;
+  /** Set while a planned change is waiting for the owner to accept or discard it. */
+  pendingPlan: PendingPlan | null;
   matchResult: MatchResult | null;
   resolution: Resolution | null;
   error: StructuredError | null;
@@ -319,15 +344,3 @@ export interface AuditLogEntry {
   createdAt: string;
 }
 
-export interface DashboardSummary {
-  totalAnalyses: number;
-  completedAnalyses: number;
-  failedAnalyses: number;
-  templateCount: number;
-  reportCount: number;
-  averageProcessingMs: number | null;
-  recentRequests: AnalysisRequest[];
-  recentReports: Report[];
-  mostUsedTemplates: Array<{ id: string; name: string; usageCount: number }>;
-  recentActivity: AuditLogEntry[];
-}

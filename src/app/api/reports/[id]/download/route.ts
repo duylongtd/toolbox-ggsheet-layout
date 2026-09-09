@@ -15,18 +15,22 @@ export const dynamic = "force-dynamic";
  */
 export const GET = route(
   { rateLimit: "download" },
-  async ({ user, params, repositories }): Promise<NextResponse> => {
+  async ({ request, user, params, repositories }): Promise<NextResponse> => {
     const service = createReportService(repositories);
     const { report, content } = await service.download(String(params.id), user.id);
 
     const fileName = reportFileName(report.title, report.generatedAt);
+    // The viewer asks for the same bytes shown in place rather than saved, so a
+    // person can read the document before deciding to keep it.
+    const inline = new URL(request.url).searchParams.get("inline") === "1";
+    const disposition = inline ? "inline" : "attachment";
 
     return new NextResponse(new Uint8Array(content), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
         "Content-Length": String(content.byteLength),
-        "Content-Disposition": `attachment; filename="${fileName}"`,
+        "Content-Disposition": `${disposition}; filename="${fileName}"`,
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
       },

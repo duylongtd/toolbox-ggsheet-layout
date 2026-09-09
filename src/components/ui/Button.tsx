@@ -1,32 +1,42 @@
 "use client";
 
 import clsx from "clsx";
-import { Loader2 } from "lucide-react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
-type Variant = "primary" | "secondary" | "ghost" | "danger";
-type Size = "sm" | "md";
+type Variant = "primary" | "secondary" | "quiet" | "danger";
+type Size = "sm" | "md" | "lg";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
   size?: Size;
   loading?: boolean;
-  /** Rendered before the label. Icons come from an icon library, never text glyphs. */
   icon?: ReactNode;
 }
 
 const VARIANTS: Record<Variant, string> = {
-  primary: "bg-blue-700 text-white hover:bg-blue-800 disabled:bg-blue-300",
+  primary:
+    "bg-brand-600 text-white shadow-sm hover:bg-brand-700 active:bg-brand-800 disabled:bg-brand-200",
   secondary:
-    "border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 disabled:text-slate-400",
-  ghost: "text-slate-700 hover:bg-slate-100 disabled:text-slate-400",
-  danger: "bg-red-700 text-white hover:bg-red-800 disabled:bg-red-300",
+    "border border-[#dfe6e2] bg-white text-ink hover:border-brand-300 hover:bg-brand-50 disabled:text-ink-subtle",
+  quiet: "text-ink-muted hover:bg-[#eef1ef] hover:text-ink disabled:text-ink-subtle",
+  danger: "bg-red-600 text-white hover:bg-red-700 disabled:bg-red-200",
 };
 
 const SIZES: Record<Size, string> = {
   sm: "px-3 py-1.5 text-sm",
-  md: "px-4 py-2 text-sm",
+  md: "px-4 py-2.5 text-[15px]",
+  lg: "px-6 py-3 text-base",
 };
+
+/** A spinner drawn here, so a busy button does not borrow an icon set. */
+function Spinner() {
+  return (
+    <span
+      aria-hidden
+      className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent opacity-70"
+    />
+  );
+}
 
 export function Button({
   variant = "primary",
@@ -50,7 +60,7 @@ export function Button({
         className,
       )}
     >
-      {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : icon}
+      {loading ? <Spinner /> : icon}
       <span>{children}</span>
     </button>
   );

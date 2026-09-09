@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, Download, Loader2, RotateCcw } from "lucide-react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
@@ -16,6 +16,7 @@ import type {
   Report,
 } from "@/types";
 import { ChartControls } from "./ChartControls";
+import { PlanApproval, type ProposedPlan } from "./PlanApproval";
 import { PromptBox, type PromptReply } from "./PromptBox";
 import { SheetPicker } from "./SheetPicker";
 import { SourceStep } from "./SourceStep";
@@ -53,10 +54,13 @@ export function Workspace({ maxUploadSizeMb }: { maxUploadSizeMb: number }) {
   const [refining, setRefining] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<Array<{ prompt: string; reply: PromptReply }>>([]);
-  const [dirty, setDirty] = useState(false);
+  const [busyChartId, setBusyChartId] = useState<string | null>(null);
 
   const request = detail?.request;
   const running = request ? RUNNING.has(request.status) : false;
+  // Read from the request rather than kept alongside it, so a proposal is still
+  // waiting after a page refresh.
+  const plan: ProposedPlan | null = request?.pendingPlan ?? null;
 
   const refresh = useCallback(async (id: string) => {
     try {
@@ -127,7 +131,6 @@ export function Workspace({ maxUploadSizeMb }: { maxUploadSizeMb: number }) {
     try {
       await apiPost(`/api/analysis-requests/${request.id}/run`);
       await refresh(request.id);
-      setDirty(false);
     } catch (caught) {
       setError(describe(caught));
     } finally {
@@ -143,9 +146,11 @@ export function Workspace({ maxUploadSizeMb }: { maxUploadSizeMb: number }) {
         prompt,
       });
       setHistory((current) => [...current, { prompt, reply }]);
-      if (reply.status === "APPLIED") {
+      if (reply.status === "PROPOSED") {
         await refresh(request.id);
-        await run();
+      } else if (reply.status === "APPLIED") {
+        await apiPost(`/api/analysis-requests/${request.id}/run`);
+        await waitForRun(request.id);
       }
     } catch (caught) {
       setHistory((current) => [
@@ -157,13 +162,29 @@ export function Workspace({ maxUploadSizeMb }: { maxUploadSizeMb: number }) {
     }
   }
 
-  async function refine(operations: unknown[]) {
-    if (!request) return;
+  /**
+   * Accepts or drops a proposed change.
+   *
+   * Only an accepted plan reaches the definition, and the report is redrawn as
+   * part of accepting it: a plan that has been approved but not applied would
+   * leave the page saying one thing and showing another.
+   */
+  async function decide(decision: "APPROVE" | "DISCARD") {
+    if (!request || !plan) return;
     setRefining(true);
+    setError(null);
     try {
-      await apiPost(`/api/analysis-requests/${request.id}/refine`, { operations });
-      await refresh(request.id);
-      setDirty(true);
+      const reply = await apiPost<PromptReply>(`/api/analysis-requests/${request.id}/plan`, {
+        planId: plan.id,
+        decision,
+      });
+      setHistory((current) => [...current, { prompt: "", reply }]);
+      if (decision === "APPROVE") {
+        await apiPost(`/api/analysis-requests/${request.id}/run`);
+        await waitForRun(request.id);
+      } else {
+        await refresh(request.id);
+      }
     } catch (caught) {
       setError(describe(caught));
     } finally {
@@ -171,11 +192,44 @@ export function Workspace({ maxUploadSizeMb }: { maxUploadSizeMb: number }) {
     }
   }
 
+  /**
+   * Applies a change and redraws the report.
+   *
+   * The redraw is not optional: leaving it to a separate button meant the
+   * control and the picture beside it disagreed until someone found that
+   * button.
+   */
+  async function refine(operations: unknown[], chartId?: string) {
+    if (!request) return;
+    setBusyChartId(chartId ?? null);
+    setRefining(true);
+    setError(null);
+    try {
+      await apiPost(`/api/analysis-requests/${request.id}/refine`, { operations });
+      await apiPost(`/api/analysis-requests/${request.id}/run`);
+      await waitForRun(request.id);
+    } catch (caught) {
+      setError(describe(caught));
+    } finally {
+      setRefining(false);
+      setBusyChartId(null);
+    }
+  }
+
+  /** Polls until the pipeline finishes, so the caller can show progress. */
+  async function waitForRun(id: string) {
+    for (let attempt = 0; attempt < 90; attempt += 1) {
+      const next = await apiGet<Detail>(`/api/analysis-requests/${id}`);
+      setDetail(next);
+      if (!RUNNING.has(next.request.status)) return;
+      await new Promise((resolve) => setTimeout(resolve, 700));
+    }
+  }
+
   function reset() {
     setDetail(null);
     setHistory([]);
     setError(null);
-    setDirty(false);
     router.replace("/", { scroll: false });
   }
 
@@ -189,22 +243,16 @@ export function Workspace({ maxUploadSizeMb }: { maxUploadSizeMb: number }) {
   return (
     <div className="mx-auto w-full max-w-4xl space-y-5">
       {error && (
-        <div className="flex items-start gap-3 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-          <div>
-            <p className="font-medium">{T.errorTitle}</p>
-            <p>{error}</p>
-          </div>
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3.5 text-sm text-red-900">
+          <p className="font-medium">{T.errorTitle}</p>
+          <p className="mt-0.5">{error}</p>
         </div>
       )}
 
       {failed && request.error && (
-        <div className="flex items-start gap-3 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-          <div>
-            <p className="font-medium">{T.errorTitle}</p>
-            <p>{request.error.message}</p>
-          </div>
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3.5 text-sm text-red-900">
+          <p className="font-medium">{T.errorTitle}</p>
+          <p className="mt-0.5">{request.error.message}</p>
         </div>
       )}
 
@@ -219,11 +267,14 @@ export function Workspace({ maxUploadSizeMb }: { maxUploadSizeMb: number }) {
       )}
 
       {running && (
-        <div className="flex items-center gap-3 rounded-lg bg-blue-50 px-4 py-4 text-sm text-blue-900">
-          <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+        <div className="flex items-center gap-3.5 rounded-lg border border-brand-200 bg-brand-50 px-4 py-4 text-sm text-brand-900">
+          <span
+            aria-hidden
+            className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-brand-600 border-t-transparent"
+          />
           <div>
             <p className="font-medium">{T.creating}</p>
-            <p>{T.creatingNote}</p>
+            <p className="mt-0.5">{T.creatingNote}</p>
           </div>
         </div>
       )}
@@ -235,26 +286,36 @@ export function Workspace({ maxUploadSizeMb }: { maxUploadSizeMb: number }) {
       {done && detail.report && (
         <section className="app-card px-5 py-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <span className="rounded-full bg-green-100 p-2 text-green-700">
-                <CheckCircle2 className="h-5 w-5" aria-hidden />
+            <div className="flex items-center gap-3.5">
+              <span
+                aria-hidden
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100"
+              >
+                <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none">
+                  <path
+                    d="m4.5 10.5 3.5 3.5 7.5-8"
+                    stroke="#0b8043"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </span>
               <div>
-                <p className="text-base font-semibold text-slate-900">{T.doneTitle}</p>
-                <p className="text-sm text-slate-500">
+                <p className="text-base font-semibold text-ink">{T.doneTitle}</p>
+                <p className="text-sm text-ink-muted">
                   {toDisplayText(request.definition?.report.title ?? request.title, 80)}
                 </p>
               </div>
             </div>
             <div className="flex gap-2">
-              <a
-                href={`/api/reports/${detail.report.id}/download`}
-                className="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-800"
+              <Link
+                href={`/reports/${detail.report.id}`}
+                className="rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700"
               >
-                <Download className="h-4 w-4" aria-hidden />
-                {T.download}
-              </a>
-              <Button variant="secondary" onClick={reset} icon={<RotateCcw className="h-4 w-4" aria-hidden />}>
+                Xem và tải báo cáo
+              </Link>
+              <Button variant="secondary" onClick={reset}>
                 {T.startOver}
               </Button>
             </div>
@@ -267,15 +328,22 @@ export function Workspace({ maxUploadSizeMb }: { maxUploadSizeMb: number }) {
           definition={request.definition}
           charts={detail.charts}
           analysisRequestId={request.id}
-          pending={refining || busy}
-          dirty={dirty}
+          busyChartId={busyChartId}
           onToggle={(chartId, enabled) =>
-            void refine([{ type: "SET_CHART_ENABLED", chartId, enabled }])
+            void refine([{ type: "SET_CHART_ENABLED", chartId, enabled }], chartId)
           }
           onChangeType={(chartId, chartType) =>
-            void refine([{ type: "SET_CHART_TYPE", chartId, chartType }])
+            void refine([{ type: "SET_CHART_TYPE", chartId, chartType }], chartId)
           }
-          onApply={run}
+        />
+      )}
+
+      {done && plan && (
+        <PlanApproval
+          plan={plan}
+          pending={refining}
+          onApprove={() => void decide("APPROVE")}
+          onDiscard={() => void decide("DISCARD")}
         />
       )}
 

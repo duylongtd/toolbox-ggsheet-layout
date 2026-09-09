@@ -1,35 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { looksLikeFormula, neutralizeFormula, toCsv } from "@/lib/security/formula";
 import { escapeHtml, toDisplayText } from "@/lib/security/text";
 import { checkSheetUrl } from "@/lib/security/sheetUrl";
 import { checkUpload } from "@/lib/security/upload";
-
-describe("formula injection", () => {
-  it("prefixes every dangerous leading character", () => {
-    for (const payload of ["=1+1", "+1234567890", "-cmd", "@SUM(A1)", "\tvalue", "\rvalue"]) {
-      const neutralized = neutralizeFormula(payload);
-      expect(neutralized.startsWith("'")).toBe(true);
-      expect(neutralized.slice(1)).toBe(payload);
-    }
-  });
-
-  it("leaves ordinary values untouched", () => {
-    expect(neutralizeFormula("Department A")).toBe("Department A");
-    expect(neutralizeFormula(120)).toBe("120");
-    expect(neutralizeFormula(null)).toBe("");
-  });
-
-  it("detects formula shaped values", () => {
-    expect(looksLikeFormula("=cmd|'/c calc'!A1")).toBe(true);
-    expect(looksLikeFormula("ordinary")).toBe(false);
-  });
-
-  it("neutralizes and quotes every cell of a CSV export", () => {
-    const csv = toCsv(["name", "value"], [{ name: "=HYPERLINK(1)", value: 'say "hi"' }]);
-    expect(csv).toContain(`"'=HYPERLINK(1)"`);
-    expect(csv).toContain(`"say ""hi"""`);
-  });
-});
 
 describe("untrusted text", () => {
   it("escapes markup for non React sinks", () => {

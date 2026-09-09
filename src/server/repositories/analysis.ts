@@ -28,6 +28,7 @@ export type AnalysisRequestChanges = Partial<
     | "datasetId"
     | "sheets"
     | "definition"
+    | "pendingPlan"
     | "matchResult"
     | "resolution"
     | "error"
@@ -41,15 +42,12 @@ export interface AnalysisRequestRepository {
   findById(id: string): Promise<AnalysisRequest | null>;
   listByOwner(ownerId: string, limit?: number): Promise<AnalysisRequest[]>;
   update(id: string, changes: AnalysisRequestChanges): Promise<AnalysisRequest>;
-  countByOwner(ownerId: string): Promise<number>;
-  countByOwnerAndStatus(ownerId: string, status: AnalysisStatus): Promise<number>;
   countByTemplateVersion(templateVersionId: string): Promise<number>;
 }
 
 export interface AnalysisResultRepository {
   upsert(input: Omit<AnalysisResult, "id" | "createdAt">): Promise<AnalysisResult>;
   findByRequestId(analysisRequestId: string): Promise<AnalysisResult | null>;
-  averageProcessingMs(ownerId: string): Promise<number | null>;
 }
 
 export interface ChartRepository {

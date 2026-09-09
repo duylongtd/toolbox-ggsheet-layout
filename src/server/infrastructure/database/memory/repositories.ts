@@ -81,9 +81,6 @@ export function createMemoryRepositories(): Repositories & { reset(): void } {
       async findById(id) {
         return db.users.get(id) ?? null;
       },
-      async findByEmail(email) {
-        return [...db.users.values()].find((user) => user.email === email) ?? null;
-      },
       async upsertFromAuth(input) {
         const existing = db.users.get(input.id);
         const user: User = existing
@@ -151,18 +148,6 @@ export function createMemoryRepositories(): Repositories & { reset(): void } {
           updatedAt: now(),
         });
       },
-      async countByOwner(ownerId) {
-        return [...db.templates.values()].filter(
-          (t) => t.ownerId === ownerId && t.status === "active",
-        ).length;
-      },
-      async mostUsed(ownerId, limit) {
-        return [...db.templates.values()]
-          .filter((t) => t.ownerId === ownerId)
-          .sort((a, b) => b.usageCount - a.usageCount)
-          .slice(0, limit)
-          .map((t) => ({ id: t.id, name: t.name, usageCount: t.usageCount }));
-      },
     },
 
     templateVersions: {
@@ -196,12 +181,6 @@ export function createMemoryRepositories(): Repositories & { reset(): void } {
           .sort((a, b) => b.version - a.version);
         return versions[0] ? clone(versions[0]) : null;
       },
-      async findByVersion(templateId, version) {
-        const found = [...db.templateVersions.values()].find(
-          (v) => v.templateId === templateId && v.version === version,
-        );
-        return found ? clone(found) : null;
-      },
     },
 
     datasets: {
@@ -213,9 +192,6 @@ export function createMemoryRepositories(): Repositories & { reset(): void } {
       async findById(id) {
         const found = db.datasets.get(id);
         return found ? clone(found) : null;
-      },
-      async deleteById(id) {
-        db.datasets.delete(id);
       },
     },
 
@@ -233,6 +209,7 @@ export function createMemoryRepositories(): Repositories & { reset(): void } {
           datasetId: null,
           sheets: [],
           definition: null,
+          pendingPlan: null,
           matchResult: null,
           resolution: null,
           error: null,
@@ -262,14 +239,6 @@ export function createMemoryRepositories(): Repositories & { reset(): void } {
         db.analysisRequests.set(id, updated);
         return clone(updated);
       },
-      async countByOwner(ownerId) {
-        return [...db.analysisRequests.values()].filter((r) => r.ownerId === ownerId).length;
-      },
-      async countByOwnerAndStatus(ownerId, status: AnalysisStatus) {
-        return [...db.analysisRequests.values()].filter(
-          (r) => r.ownerId === ownerId && r.status === status,
-        ).length;
-      },
       async countByTemplateVersion(templateVersionId) {
         return [...db.analysisRequests.values()].filter(
           (r) => r.templateVersionId === templateVersionId,
@@ -295,19 +264,6 @@ export function createMemoryRepositories(): Repositories & { reset(): void } {
           (r) => r.analysisRequestId === analysisRequestId,
         );
         return found ? clone(found) : null;
-      },
-      async averageProcessingMs(ownerId) {
-        const owned = new Set(
-          [...db.analysisRequests.values()]
-            .filter((r) => r.ownerId === ownerId)
-            .map((r) => r.id),
-        );
-        const values = [...db.analysisResults.values()]
-          .filter((r) => owned.has(r.analysisRequestId))
-          .map((r) => Number(r.timings?.totalMs ?? 0))
-          .filter((value) => value > 0);
-        if (values.length === 0) return null;
-        return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
       },
     },
 
@@ -379,9 +335,6 @@ export function createMemoryRepositories(): Repositories & { reset(): void } {
           .sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))
           .slice(0, limit)
           .map(clone);
-      },
-      async countByOwner(ownerId) {
-        return [...db.reports.values()].filter((r) => r.ownerId === ownerId).length;
       },
       async countByTemplateVersion(templateVersionId) {
         return [...db.reports.values()].filter((r) => r.templateVersionId === templateVersionId)

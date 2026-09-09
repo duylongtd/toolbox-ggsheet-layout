@@ -5,7 +5,6 @@ export interface ReportRepository {
   findById(id: string): Promise<Report | null>;
   findByRequestId(analysisRequestId: string): Promise<Report | null>;
   listByOwner(ownerId: string, limit?: number): Promise<Report[]>;
-  countByOwner(ownerId: string): Promise<number>;
   /** Used to refuse deleting a template version that a report still references. */
   countByTemplateVersion(templateVersionId: string): Promise<number>;
 }

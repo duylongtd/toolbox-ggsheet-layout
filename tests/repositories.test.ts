@@ -63,7 +63,7 @@ describe("user repository", () => {
       avatarUrl: "https://example.com/a.png",
     });
     expect(updated.displayName).toBe("New name");
-    expect(await repositories.users.findByEmail("owner@example.com")).not.toBeNull();
+    expect(updated.email).toBe("owner@example.com");
   });
 
   it("records the login time", async () => {
@@ -230,7 +230,7 @@ describe("analysis result repository", () => {
     const stored = await repositories.analysisResults.findByRequestId(request.id);
     expect(stored?.id).toBe(second.id);
     expect(stored?.metrics).toEqual([{ key: "a", value: 2 }]);
-    expect(await repositories.analysisResults.averageProcessingMs(userId)).toBe(2000);
+    expect(stored?.timings).toEqual({ totalMs: 2000 });
   });
 });
 

@@ -31,10 +31,6 @@ export function createPostgresRepositories(): Repositories {
         const row = await queryOne("SELECT * FROM users WHERE id = $1", [id]);
         return row ? toUser(row) : null;
       },
-      async findByEmail(email) {
-        const row = await queryOne("SELECT * FROM users WHERE email = $1", [email]);
-        return row ? toUser(row) : null;
-      },
       async upsertFromAuth(input) {
         const row = await queryOne(
           `INSERT INTO users (id, email, display_name, avatar_url)
@@ -105,25 +101,6 @@ export function createPostgresRepositories(): Repositories {
           [id],
         );
       },
-      async countByOwner(ownerId) {
-        const row = await queryOne<{ count: string }>(
-          "SELECT COUNT(*)::text AS count FROM templates WHERE owner_id = $1 AND status = 'active'",
-          [ownerId],
-        );
-        return Number(row?.count ?? 0);
-      },
-      async mostUsed(ownerId, limit) {
-        const rows = await query<{ id: string; name: string; usage_count: number }>(
-          `SELECT id, name, usage_count FROM templates
-           WHERE owner_id = $1 ORDER BY usage_count DESC, updated_at DESC LIMIT $2`,
-          [ownerId, limit],
-        );
-        return rows.map((row) => ({
-          id: row.id,
-          name: row.name,
-          usageCount: Number(row.usage_count),
-        }));
-      },
     },
 
     templateVersions: {
@@ -158,13 +135,6 @@ export function createPostgresRepositories(): Repositories {
         const row = await queryOne(
           "SELECT * FROM template_versions WHERE template_id = $1 ORDER BY version DESC LIMIT 1",
           [templateId],
-        );
-        return row ? toTemplateVersion(row) : null;
-      },
-      async findByVersion(templateId, version) {
-        const row = await queryOne(
-          "SELECT * FROM template_versions WHERE template_id = $1 AND version = $2",
-          [templateId, version],
         );
         return row ? toTemplateVersion(row) : null;
       },
@@ -246,9 +216,6 @@ export function createPostgresRepositories(): Repositories {
         const issues: Dataset["issues"] = issueRows.map(toDatasetIssue);
         return toDataset(row, columns, issues);
       },
-      async deleteById(id) {
-        await query("DELETE FROM datasets WHERE id = $1", [id]);
-      },
     },
 
     analysisRequests: {
@@ -293,6 +260,7 @@ export function createPostgresRepositories(): Repositories {
              sheets = COALESCE($16::jsonb, sheets),
              definition = COALESCE($8::jsonb, definition),
              match_result = COALESCE($9::jsonb, match_result),
+             pending_plan = CASE WHEN $18::boolean THEN $17::jsonb ELSE pending_plan END,
              resolution = COALESCE($10::jsonb, resolution),
              error = CASE WHEN $12::boolean THEN $11::jsonb ELSE error END,
              engine_version = COALESCE($13, engine_version),
@@ -317,24 +285,14 @@ export function createPostgresRepositories(): Repositories {
             changes.completedAt ?? null,
             changes.sourceType ?? null,
             changes.sheets ? JSON.stringify(changes.sheets) : null,
+            changes.pendingPlan ? JSON.stringify(changes.pendingPlan) : null,
+            // Accepting or discarding a plan clears the column, so like the
+            // error column it is written whenever the caller mentions it.
+            Object.prototype.hasOwnProperty.call(changes, "pendingPlan"),
           ],
         );
         if (!row) throw new Error(`Analysis request ${id} not found`);
         return toAnalysisRequest(row);
-      },
-      async countByOwner(ownerId) {
-        const row = await queryOne<{ count: string }>(
-          "SELECT COUNT(*)::text AS count FROM analysis_requests WHERE owner_id = $1",
-          [ownerId],
-        );
-        return Number(row?.count ?? 0);
-      },
-      async countByOwnerAndStatus(ownerId, status: AnalysisStatus) {
-        const row = await queryOne<{ count: string }>(
-          "SELECT COUNT(*)::text AS count FROM analysis_requests WHERE owner_id = $1 AND status = $2",
-          [ownerId, status],
-        );
-        return Number(row?.count ?? 0);
       },
       async countByTemplateVersion(templateVersionId) {
         const row = await queryOne<{ count: string }>(
@@ -378,16 +336,6 @@ export function createPostgresRepositories(): Repositories {
           [analysisRequestId],
         );
         return row ? toAnalysisResult(row) : null;
-      },
-      async averageProcessingMs(ownerId) {
-        const row = await queryOne<{ average: string | null }>(
-          `SELECT AVG((r.timings ->> 'totalMs')::numeric)::text AS average
-           FROM analysis_results r
-           JOIN analysis_requests a ON a.id = r.analysis_request_id
-           WHERE a.owner_id = $1 AND r.timings ? 'totalMs'`,
-          [ownerId],
-        );
-        return row?.average ? Math.round(Number(row.average)) : null;
       },
     },
 
@@ -498,13 +446,6 @@ export function createPostgresRepositories(): Repositories {
           [ownerId, limit],
         );
         return rows.map(toReport);
-      },
-      async countByOwner(ownerId) {
-        const row = await queryOne<{ count: string }>(
-          "SELECT COUNT(*)::text AS count FROM reports WHERE owner_id = $1",
-          [ownerId],
-        );
-        return Number(row?.count ?? 0);
       },
       async countByTemplateVersion(templateVersionId) {
         const row = await queryOne<{ count: string }>(

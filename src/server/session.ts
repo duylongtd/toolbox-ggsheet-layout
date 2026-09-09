@@ -19,6 +19,8 @@ export async function getCurrentUser(): Promise<User | null> {
 
 export async function requireUser(): Promise<User> {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  // Someone who has never signed in should meet the public page rather than a
+  // bare form with no explanation of what the tool does.
+  if (!user) redirect("/gioi-thieu");
   return user;
 }

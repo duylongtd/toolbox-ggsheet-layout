@@ -16,8 +16,6 @@ export interface TemplateRepository {
     changes: Partial<Pick<Template, "name" | "description" | "category" | "status" | "currentVersion">>,
   ): Promise<Template>;
   recordUsage(id: string): Promise<void>;
-  countByOwner(ownerId: string): Promise<number>;
-  mostUsed(ownerId: string, limit: number): Promise<Array<{ id: string; name: string; usageCount: number }>>;
 }
 
 export interface CreateTemplateVersionInput {
@@ -35,5 +33,4 @@ export interface TemplateVersionRepository {
   findById(id: string): Promise<TemplateVersion | null>;
   listByTemplate(templateId: string): Promise<TemplateVersion[]>;
   findLatest(templateId: string): Promise<TemplateVersion | null>;
-  findByVersion(templateId: string, version: number): Promise<TemplateVersion | null>;
 }

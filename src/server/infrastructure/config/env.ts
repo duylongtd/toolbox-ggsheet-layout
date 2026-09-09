@@ -24,9 +24,27 @@ const numberFromString = (fallback: number) =>
       return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
     });
 
+/**
+ * The public address of this deployment.
+ *
+ * A trailing slash here is silent and expensive: the sign in target is built by
+ * concatenation, so "https://example.com/" produces a callback of
+ * "https://example.com//auth/callback", which will not match the redirect
+ * address registered with the identity provider. Google then refuses the sign
+ * in with a mismatch error that says nothing about the extra slash. It is
+ * trimmed on the way in instead.
+ */
+const publicUrl = z
+  .string()
+  .default("http://localhost:3000")
+  .transform((value) => value.trim().replace(/\/+$/, ""))
+  .refine((value) => /^https?:\/\/[^/]+$/.test(value), {
+    message: "must be an http(s) origin with no path, for example https://app.example.com",
+  });
+
 const schema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  APP_URL: z.string().default("http://localhost:3000"),
+  APP_URL: publicUrl,
 
   DATABASE_DRIVER: z.enum(["postgres", "memory"]).default("memory"),
   DATABASE_URL: z.string().optional(),
@@ -119,6 +137,13 @@ export function assertProductionConfiguration(): void {
   }
   if (serverEnv.AUTH_SESSION_SECRET.includes("change-me")) {
     problems.push("AUTH_SESSION_SECRET still uses the development default");
+  }
+  // Left unset, sign in sends the browser to localhost and the deployment looks
+  // broken for reasons that have nothing to do with the identity provider.
+  if (!serverEnv.APP_URL.startsWith("https://") || serverEnv.APP_URL.includes("localhost")) {
+    problems.push(
+      "APP_URL must be the public https address of this deployment, for example https://app.example.com",
+    );
   }
   if (problems.length > 0) {
     throw new Error(`Unsafe production configuration: ${problems.join("; ")}`);
