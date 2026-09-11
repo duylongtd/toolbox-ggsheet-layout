@@ -62,7 +62,11 @@ export class SupabaseAuthProvider implements AuthProvider {
     const supabase = await this.client();
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (error || !data.user) {
-      throw new AppError("SIGN_IN_FAILED", "Sign in could not be completed.", 401);
+      // The provider's message travels as the cause so the log at the callback
+      // can say what actually went wrong. The user facing text stays generic.
+      throw new AppError("SIGN_IN_FAILED", "Sign in could not be completed.", 401, {}, {
+        cause: error ?? new Error("no user in the exchanged session"),
+      });
     }
     return toUser(data.user);
   }

@@ -12,8 +12,10 @@ export class AppError extends Error {
     message: string,
     public readonly status: number = 400,
     public readonly details: Record<string, unknown> = {},
+    options?: { cause?: unknown },
   ) {
-    super(message);
+    // The cause is for logs only. It never reaches a response body.
+    super(message, options);
     this.name = "AppError";
   }
 

@@ -13,6 +13,7 @@ interface SignInTarget {
 const CALLBACK_MESSAGES: Record<string, string> = {
   missing_code: "Đăng nhập chưa hoàn tất. Bạn thử lại giúp mình.",
   sign_in_failed: "Không đăng nhập được. Bạn thử lại giúp mình.",
+  provider: "Google không xác nhận được tài khoản của bạn.",
 };
 
 /** The Google mark, drawn here so the button looks like the one people expect. */
@@ -31,9 +32,14 @@ export function SignInPanel({ providerName }: { providerName: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(
-    CALLBACK_MESSAGES[searchParams.get("error") ?? ""] ?? null,
-  );
+  const [error, setError] = useState<string | null>(() => {
+    const message = CALLBACK_MESSAGES[searchParams.get("error") ?? ""] ?? null;
+    // The provider's own words, already reduced to plain characters by the
+    // callback, so a wrong client secret reads as exactly that and not as
+    // "try again". Rendered as text, never as markup.
+    const reason = searchParams.get("reason");
+    return message && reason ? `${message} (${reason})` : message;
+  });
 
   const isGoogle = providerName === "supabase";
 
