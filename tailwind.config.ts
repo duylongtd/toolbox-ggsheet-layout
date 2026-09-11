@@ -73,6 +73,39 @@ const config: Config = {
           from: { clipPath: "inset(-35% 100% -20% 0)" },
           to: { clipPath: "inset(-35% 0 -20% 0)" },
         },
+        // A slow lift and settle, for things that should feel held in the air.
+        hover: {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-10px)" },
+        },
+        // A ribbon that never ends: the content is doubled and slid by half.
+        marquee: {
+          from: { transform: "translateX(0)" },
+          to: { transform: "translateX(-50%)" },
+        },
+        // A light sweeping across a button on hover.
+        sheen: {
+          from: { transform: "translateX(-120%) skewX(-18deg)" },
+          to: { transform: "translateX(220%) skewX(-18deg)" },
+        },
+        // The line joining the steps draws itself left to right.
+        "draw-x": {
+          from: { transform: "scaleX(0)" },
+          to: { transform: "scaleX(1)" },
+        },
+        "pop-in": {
+          "0%": { opacity: "0", transform: "scale(0.6)" },
+          "70%": { opacity: "1", transform: "scale(1.08)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
+        "pulse-ring": {
+          "0%": { transform: "scale(0.8)", opacity: "0.8" },
+          "100%": { transform: "scale(2.2)", opacity: "0" },
+        },
+        "spin-slow": {
+          from: { transform: "rotate(0deg)" },
+          to: { transform: "rotate(360deg)" },
+        },
       },
       animation: {
         "fade-up": "fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both",
@@ -82,6 +115,13 @@ const config: Config = {
         "rise-bar": "rise-bar 0.8s cubic-bezier(0.22, 1, 0.36, 1) both",
         "poster-in": "poster-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) both",
         "wipe-in": "wipe-in 1s cubic-bezier(0.76, 0, 0.24, 1) both",
+        hover: "hover 6s ease-in-out infinite",
+        marquee: "marquee 40s linear infinite",
+        sheen: "sheen 0.9s cubic-bezier(0.22, 1, 0.36, 1) both",
+        "draw-x": "draw-x 1.4s cubic-bezier(0.22, 1, 0.36, 1) both",
+        "pop-in": "pop-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both",
+        "pulse-ring": "pulse-ring 1.8s cubic-bezier(0.22, 1, 0.36, 1) infinite",
+        "spin-slow": "spin-slow 18s linear infinite",
       },
     },
   },
