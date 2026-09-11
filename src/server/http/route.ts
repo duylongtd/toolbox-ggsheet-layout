@@ -238,7 +238,7 @@ function toErrorResponse(
     );
   }
 
-  if (error instanceof AppError) {
+  if (AppError.is(error)) {
     logger.warn("Handled error", {
       requestId,
       path,

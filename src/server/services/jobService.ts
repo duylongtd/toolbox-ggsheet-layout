@@ -74,7 +74,7 @@ export async function drainQueue(): Promise<number> {
         });
       } catch (error) {
         const structured =
-          error instanceof AppError
+          AppError.is(error)
             ? { code: error.code, message: error.message, details: error.details }
             : {
                 code: "ANALYSIS_FAILED",

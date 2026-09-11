@@ -19,6 +19,29 @@ export class AppError extends Error {
     this.name = "AppError";
   }
 
+  /**
+   * Whether a value is one of these, by shape rather than by identity.
+   *
+   * The job worker is started from the instrumentation hook, which imports
+   * its modules through a separate graph, so it holds a second copy of this
+   * class. An error thrown by the analysis client and caught by the worker
+   * failed instanceof against that copy and was recorded as a generic
+   * failure with no code and no details. On the first deployment that turned
+   * a processing timeout, complete with its limit, into "could not be
+   * completed", and the cause had to be reconstructed from timestamps.
+   */
+  static is(value: unknown): value is AppError {
+    if (value instanceof AppError) return true;
+    if (typeof value !== "object" || value === null) return false;
+    const candidate = value as Partial<AppError> & { name?: unknown };
+    return (
+      candidate.name === "AppError" &&
+      typeof candidate.code === "string" &&
+      typeof candidate.status === "number" &&
+      typeof candidate.message === "string"
+    );
+  }
+
   toJSON(requestId: string) {
     return {
       error: {

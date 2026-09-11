@@ -244,7 +244,7 @@ export function createAnalysisService(repositories: Repositories) {
 
         return { request: updated, dataset };
       } catch (error) {
-        if (error instanceof AppError) await fail(request.id, error);
+        if (AppError.is(error)) await fail(request.id, error);
         throw error;
       }
     },
@@ -306,7 +306,7 @@ export function createAnalysisService(repositories: Repositories) {
 
         return { request: updated, dataset };
       } catch (error) {
-        if (error instanceof AppError) await fail(request.id, error);
+        if (AppError.is(error)) await fail(request.id, error);
         throw error;
       }
     },

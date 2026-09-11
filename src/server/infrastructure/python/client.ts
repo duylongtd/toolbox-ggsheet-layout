@@ -239,7 +239,7 @@ export class HttpAnalysisEngineClient implements AnalysisEngineClient {
       });
       return parsed as T;
     } catch (error) {
-      if (error instanceof AppError) throw error;
+      if (AppError.is(error)) throw error;
       if (error instanceof Error && error.name === "AbortError") {
         throw new AppError(
           "ANALYSIS_SERVICE_TIMEOUT",

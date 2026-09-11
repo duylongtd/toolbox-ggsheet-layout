@@ -68,3 +68,30 @@ describe("Google Sheets address", () => {
     }
   });
 });
+
+describe("recognising an application error across module copies", () => {
+  it("accepts an instance from this module", async () => {
+    const { AppError } = await import("@/server/http/errors");
+    expect(AppError.is(new AppError("X", "x", 400))).toBe(true);
+  });
+
+  it("accepts the same shape built elsewhere, as another module graph would hold it", async () => {
+    const { AppError } = await import("@/server/http/errors");
+    // What the worker sees when the client threw from a second copy of the class.
+    const foreign = Object.assign(new Error("Processing took too long"), {
+      name: "AppError",
+      code: "PROCESSING_TIMEOUT",
+      status: 502,
+      details: { limitSeconds: 120 },
+    });
+    expect(AppError.is(foreign)).toBe(true);
+  });
+
+  it("rejects an ordinary error and non-objects", async () => {
+    const { AppError } = await import("@/server/http/errors");
+    expect(AppError.is(new Error("plain"))).toBe(false);
+    expect(AppError.is({ name: "AppError" })).toBe(false);
+    expect(AppError.is(null)).toBe(false);
+    expect(AppError.is("AppError")).toBe(false);
+  });
+});
