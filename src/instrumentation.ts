@@ -15,6 +15,18 @@ export async function register(): Promise<void> {
     );
     assertProductionConfiguration();
 
+    // The schema is brought up to date before any request or job can touch
+    // it. A failure here stops the boot, which is the right outcome: serving
+    // traffic against a database missing a column fails every request with
+    // a worse message.
+    const { serverEnv } = await import("@/server/infrastructure/config/env");
+    if (serverEnv.DATABASE_DRIVER === "postgres") {
+      const { applyMigrations } = await import(
+        "@/server/infrastructure/database/postgres/migrate"
+      );
+      await applyMigrations();
+    }
+
     const { startJobWorker } = await import("@/server/services/jobService");
     startJobWorker();
   }

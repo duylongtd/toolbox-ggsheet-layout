@@ -239,6 +239,27 @@ export interface SheetOption {
   columnCount: number;
 }
 
+/**
+ * One report from a run in progress.
+ *
+ * Stages come from the analysis engine in the order they execute; the web
+ * service adds a few of its own around the call. A failed run ends with a
+ * `failed` event naming the stage it stopped in.
+ */
+export interface ProgressEvent {
+  /** Which part of the work: load, schema, analyze, charts, ai, pdf, or a web side step. */
+  stage: string;
+  state: "started" | "running" | "done" | "skipped" | "failed";
+  message: string;
+  /** Epoch milliseconds when it was reported. */
+  at: number;
+  /** Counter within a stage, such as charts rendered so far. */
+  done?: number;
+  total?: number;
+  durationMs?: number;
+  code?: string;
+}
+
 export interface AnalysisRequest {
   id: string;
   ownerId: string;
@@ -253,6 +274,8 @@ export interface AnalysisRequest {
   definition: TemplateDefinition | null;
   /** Set while a planned change is waiting for the owner to accept or discard it. */
   pendingPlan: PendingPlan | null;
+  /** What the current or last run reported, oldest first. Cleared when a run starts. */
+  progress: ProgressEvent[];
   matchResult: MatchResult | null;
   resolution: Resolution | null;
   error: StructuredError | null;

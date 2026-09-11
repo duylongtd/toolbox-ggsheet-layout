@@ -1,6 +1,7 @@
 import type {
   AIAnalysis,
   AnalysisRequest,
+  ProgressEvent,
   AnalysisResult,
   AnalysisStatus,
   Chart,
@@ -29,6 +30,7 @@ export type AnalysisRequestChanges = Partial<
     | "sheets"
     | "definition"
     | "pendingPlan"
+    | "progress"
     | "matchResult"
     | "resolution"
     | "error"
@@ -42,6 +44,13 @@ export interface AnalysisRequestRepository {
   findById(id: string): Promise<AnalysisRequest | null>;
   listByOwner(ownerId: string, limit?: number): Promise<AnalysisRequest[]>;
   update(id: string, changes: AnalysisRequestChanges): Promise<AnalysisRequest>;
+  /**
+   * Adds one progress report to the end of the list, atomically.
+   *
+   * Reports arrive one at a time while a run is in flight; reading the list,
+   * pushing and writing it back would lose reports under concurrent updates.
+   */
+  appendProgress(id: string, event: ProgressEvent): Promise<void>;
   countByTemplateVersion(templateVersionId: string): Promise<number>;
 }
 

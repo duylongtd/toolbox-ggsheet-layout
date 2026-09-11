@@ -210,6 +210,7 @@ export function createMemoryRepositories(): Repositories & { reset(): void } {
           sheets: [],
           definition: null,
           pendingPlan: null,
+          progress: [],
           matchResult: null,
           resolution: null,
           error: null,
@@ -238,6 +239,12 @@ export function createMemoryRepositories(): Repositories & { reset(): void } {
         const updated = { ...existing, ...clone(changes), updatedAt: now() };
         db.analysisRequests.set(id, updated);
         return clone(updated);
+      },
+      async appendProgress(id, event) {
+        const existing = db.analysisRequests.get(id);
+        if (!existing) throw new Error(`Analysis request ${id} not found`);
+        existing.progress = [...existing.progress, clone(event)];
+        existing.updatedAt = now();
       },
       async countByTemplateVersion(templateVersionId) {
         return [...db.analysisRequests.values()].filter(

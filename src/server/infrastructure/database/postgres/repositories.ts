@@ -261,6 +261,7 @@ export function createPostgresRepositories(): Repositories {
              definition = COALESCE($8::jsonb, definition),
              match_result = COALESCE($9::jsonb, match_result),
              pending_plan = CASE WHEN $18::boolean THEN $17::jsonb ELSE pending_plan END,
+             progress = COALESCE($19::jsonb, progress),
              resolution = COALESCE($10::jsonb, resolution),
              error = CASE WHEN $12::boolean THEN $11::jsonb ELSE error END,
              engine_version = COALESCE($13, engine_version),
@@ -289,10 +290,19 @@ export function createPostgresRepositories(): Repositories {
             // Accepting or discarding a plan clears the column, so like the
             // error column it is written whenever the caller mentions it.
             Object.prototype.hasOwnProperty.call(changes, "pendingPlan"),
+            changes.progress ? JSON.stringify(changes.progress) : null,
           ],
         );
         if (!row) throw new Error(`Analysis request ${id} not found`);
         return toAnalysisRequest(row);
+      },
+      async appendProgress(id, event) {
+        // The concatenation happens in the database, so two reports arriving
+        // together both land rather than one overwriting the other.
+        await query(
+          "UPDATE analysis_requests SET progress = progress || $2::jsonb WHERE id = $1",
+          [id, JSON.stringify([event])],
+        );
       },
       async countByTemplateVersion(templateVersionId) {
         const row = await queryOne<{ count: string }>(

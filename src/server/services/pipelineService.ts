@@ -5,7 +5,7 @@ import { getStorageProvider } from "@/server/infrastructure/storage";
 import { logger } from "@/server/infrastructure/logging/logger";
 import type { Repositories } from "@/server/repositories";
 import { AppError, ErrorCodes } from "@/server/http/errors";
-import type { AIStatus, Chart } from "@/types";
+import type { AIStatus, Chart, ProgressEvent } from "@/types";
 import { AuditActions, createAuditService } from "./auditService";
 import { toConfirmedMappings } from "./analysisService";
 import { forEngine } from "./refinement";
@@ -18,6 +18,11 @@ import { forEngine } from "./refinement";
  * are stored and shown to the user, rather than the web layer guessing at
  * progress it cannot observe.
  */
+/** A report from this side of the call, shaped like the engine's. */
+function own(stage: string, state: ProgressEvent["state"], message: string): ProgressEvent {
+  return { stage, state, message, at: Date.now() };
+}
+
 export function createPipelineService(repositories: Repositories) {
   const engine = getAnalysisEngineClient();
   const storage = getStorageProvider();
@@ -42,6 +47,22 @@ export function createPipelineService(repositories: Repositories) {
         ? await repositories.templateVersions.findById(request.templateVersionId)
         : null;
 
+      // A run starts with an empty log; what the previous run reported is
+      // history the page no longer needs once a new one is under way.
+      await repositories.analysisRequests.update(analysisRequestId, { progress: [] });
+      const note = async (event: ProgressEvent) => {
+        await repositories.analysisRequests.appendProgress(analysisRequestId, event);
+        logger.info("Pipeline progress", {
+          analysisRequestId,
+          stage: event.stage,
+          state: event.state,
+          message: event.message,
+          done: event.done,
+          total: event.total,
+        });
+      };
+      await note(own("engine", "started", "Gửi yêu cầu tới bộ phân tích"));
+
       const result: PipelineResult = await engine.process({
         datasetId: request.datasetId,
         // Charts the user switched off stay in the stored definition so the
@@ -59,7 +80,10 @@ export function createPipelineService(repositories: Repositories) {
         // rerun after adjusting the configuration. The uploaded bytes were
         // already deleted by the analysis service right after parsing.
         deleteDatasetAfter: false,
-      });
+      }, note);
+
+      await note(own("engine", "done", "Bộ phân tích đã trả kết quả"));
+      await note(own("save", "started", "Lưu kết quả, biểu đồ và tệp báo cáo"));
 
       const analysis = result.analysis as Record<string, unknown>;
 
@@ -83,6 +107,7 @@ export function createPipelineService(repositories: Repositories) {
         templateVersionId: request.templateVersionId,
       });
 
+      await note(own("save", "done", "Đã lưu"));
       await repositories.analysisRequests.update(analysisRequestId, {
         status: "COMPLETED",
         engineVersion: result.engineVersion,

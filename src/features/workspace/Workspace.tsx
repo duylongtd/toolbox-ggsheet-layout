@@ -18,6 +18,7 @@ import type {
 import { ChartControls } from "./ChartControls";
 import { PlanApproval, type ProposedPlan } from "./PlanApproval";
 import { PromptBox, type PromptReply } from "./PromptBox";
+import { RunProgress } from "./RunProgress";
 import { SheetPicker } from "./SheetPicker";
 import { SourceStep } from "./SourceStep";
 import { Suggestion } from "./Suggestion";
@@ -72,7 +73,7 @@ export function Workspace({ maxUploadSizeMb }: { maxUploadSizeMb: number }) {
 
   useEffect(() => {
     if (!running || !request) return;
-    const timer = setInterval(() => void refresh(request.id), 1500);
+    const timer = setInterval(() => void refresh(request.id), 1000);
     return () => clearInterval(timer);
   }, [running, request, refresh]);
 
@@ -222,7 +223,7 @@ export function Workspace({ maxUploadSizeMb }: { maxUploadSizeMb: number }) {
       const next = await apiGet<Detail>(`/api/analysis-requests/${id}`);
       setDetail(next);
       if (!RUNNING.has(next.request.status)) return;
-      await new Promise((resolve) => setTimeout(resolve, 700));
+      await new Promise((resolve) => setTimeout(resolve, 600));
     }
   }
 
@@ -249,7 +250,7 @@ export function Workspace({ maxUploadSizeMb }: { maxUploadSizeMb: number }) {
         </div>
       )}
 
-      {failed && request.error && (
+      {failed && request.error && request.progress.length === 0 && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3.5 text-sm text-red-900">
           <p className="font-medium">{T.errorTitle}</p>
           <p className="mt-0.5">{request.error.message}</p>
@@ -266,17 +267,13 @@ export function Workspace({ maxUploadSizeMb }: { maxUploadSizeMb: number }) {
         />
       )}
 
-      {running && (
-        <div className="flex items-center gap-3.5 rounded-lg border border-brand-200 bg-brand-50 px-4 py-4 text-sm text-brand-900">
-          <span
-            aria-hidden
-            className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-brand-600 border-t-transparent"
-          />
-          <div>
-            <p className="font-medium">{T.creating}</p>
-            <p className="mt-0.5">{T.creatingNote}</p>
-          </div>
-        </div>
+      {(running || (request.progress.length > 0 && (done || failed))) && (
+        <RunProgress
+          events={request.progress}
+          running={running}
+          failed={failed}
+          startedAt={request.updatedAt}
+        />
       )}
 
       {!running && !done && request.definition && (

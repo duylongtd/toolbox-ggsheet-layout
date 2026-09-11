@@ -21,6 +21,8 @@ RUN addgroup --system --gid 1001 nodejs \
  && adduser --system --uid 1001 nextjs
 
 COPY --from=builder /app/public ./public
+# The schema files run at boot, so they have to be in the image that boots.
+COPY --from=builder /app/database ./database
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 

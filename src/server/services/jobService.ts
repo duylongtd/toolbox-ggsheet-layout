@@ -86,7 +86,23 @@ export async function drainQueue(): Promise<number> {
           jobId: job.id,
           analysisRequestId: job.analysisRequestId,
           code: structured.code,
+          message: structured.message,
         });
+
+        // The engine names the stage it failed in; when the failure happened
+        // on this side or in transit, nothing has yet, so the log gets a final
+        // entry either way and the page can show where the run stopped.
+        const current = await repositories.analysisRequests.findById(job.analysisRequestId);
+        const last = current?.progress.at(-1);
+        if (last?.state !== "failed") {
+          await repositories.analysisRequests.appendProgress(job.analysisRequestId, {
+            stage: last?.stage ?? "engine",
+            state: "failed",
+            message: structured.message,
+            code: structured.code,
+            at: Date.now(),
+          });
+        }
 
         await repositories.jobs.update(job.id, {
           status: "FAILED",

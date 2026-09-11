@@ -112,6 +112,7 @@ export const toAnalysisRequest = (row: Record<string, unknown>): AnalysisRequest
   sheets: (row.sheets as AnalysisRequest["sheets"]) ?? [],
   definition: (row.definition as AnalysisRequest["definition"]) ?? null,
   pendingPlan: (row.pending_plan as AnalysisRequest["pendingPlan"]) ?? null,
+  progress: (row.progress as AnalysisRequest["progress"]) ?? [],
   matchResult: (row.match_result as AnalysisRequest["matchResult"]) ?? null,
   resolution: (row.resolution as AnalysisRequest["resolution"]) ?? null,
   error: (row.error as AnalysisRequest["error"]) ?? null,
